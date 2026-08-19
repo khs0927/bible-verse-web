@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: bible-verse-web
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /

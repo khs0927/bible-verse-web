@@ -1,0 +1,12 @@
+.gradle
+build
+**/build
+.git
+.gitignore
+*.md
+.idea
+*.iml
+.DS_Store
+*.log
+tmp
+.kotlin
