@@ -23,13 +23,18 @@ private const val INT8_BASE =
     "https://huggingface.co/REALBITS/MOSS-TTS-Nano-100M-ONNX-int8/resolve/main"
 private const val INT8_PREFILL = "$INT8_BASE/moss_tts_prefill.onnx"
 private const val INT8_GLOBAL = "$INT8_BASE/moss_tts_global_shared_int8.data"
+private const val INT8_LOCAL_GRAPH = "$INT8_BASE/moss_tts_local_fixed_sampled_frame.onnx"
 private const val INT8_LOCAL = "$INT8_BASE/moss_tts_local_fixed_sampled_frame_int8.data"
-private const val CODEC_DECODE =
-    "https://huggingface.co/OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX/resolve/main/moss_audio_tokenizer_decode_shared.data"
+private const val CODEC_BASE =
+    "https://huggingface.co/OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX/resolve/main"
+private const val CODEC_DECODE_GRAPH = "$CODEC_BASE/moss_audio_tokenizer_decode_full.onnx"
+private const val CODEC_DECODE = "$CODEC_BASE/moss_audio_tokenizer_decode_shared.data"
 private const val ORT_WASM_BASE =
     "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/"
 
 private var int8PrefillSession: dynamic = null
+private var int8LocalSession: dynamic = null
+private var codecDecodeSession: dynamic = null
 
 private fun status(message: String) {
     (document.getElementById("status") as? HTMLElement)?.textContent = message
@@ -47,6 +52,10 @@ private fun gate2bDetail(message: String) {
     (document.getElementById("gate2b-details") as? HTMLElement)?.textContent = message
 }
 
+private fun gate2cDetail(message: String) {
+    (document.getElementById("gate2c-details") as? HTMLElement)?.textContent = message
+}
+
 private fun setBadge(id: String, text: String, state: String) {
     val element = document.getElementById(id) as? HTMLElement ?: return
     element.textContent = text
@@ -62,6 +71,20 @@ private fun describeJsError(error: dynamic): String {
 private fun emptyRequestInit(): RequestInit = js("({})")
 private fun headRequestInit(): RequestInit = js("({ method: 'HEAD', cache: 'no-store' })")
 private fun toUint8Array(buffer: dynamic): dynamic = js("new Uint8Array(buffer)")
+
+private fun createSessionPromise(modelBytes: dynamic, weightBytes: dynamic, weightPath: String): dynamic {
+    val externalDataEntry = js("({})")
+    externalDataEntry.path = weightPath
+    externalDataEntry.data = weightBytes
+
+    val sessionOptions = js("({})")
+    sessionOptions.executionProviders = arrayOf("wasm")
+    sessionOptions.graphOptimizationLevel = "all"
+    sessionOptions.executionMode = "sequential"
+    sessionOptions.externalData = arrayOf(externalDataEntry)
+
+    return ort.InferenceSession.create(modelBytes, sessionOptions)
+}
 
 private fun formatContentLength(raw: String?): String {
     val bytes = raw?.toDoubleOrNull() ?: return "접근 가능"
@@ -104,8 +127,9 @@ fun main() {
     val button = document.getElementById("run-preflight") as? HTMLButtonElement
     val sizeButton = document.getElementById("run-size-probe") as? HTMLButtonElement
     val sessionButton = document.getElementById("run-session-probe") as? HTMLButtonElement
+    val coreButton = document.getElementById("run-core-sessions") as? HTMLButtonElement
 
-    if (button == null || sizeButton == null || sessionButton == null) {
+    if (button == null || sizeButton == null || sessionButton == null || coreButton == null) {
         status("사전검증 실패: 테스트 버튼을 찾을 수 없습니다.")
         return
     }
@@ -176,12 +200,16 @@ fun main() {
     sizeButton.onclick = {
         sizeButton.disabled = true
         sessionButton.disabled = true
+        coreButton.disabled = true
         document.documentElement?.removeAttribute("data-voice-lab-gate2a")
         document.documentElement?.removeAttribute("data-voice-lab-gate2b")
+        document.documentElement?.removeAttribute("data-voice-lab-gate2c")
         setBadge("fp32-result", "확인 중", "running")
         setBadge("int8-result", "확인 중", "running")
         setBadge("codec-result", "확인 중", "running")
         setBadge("session-result", "대기", "pending")
+        setBadge("local-session-result", "대기", "pending")
+        setBadge("codec-session-result", "대기", "pending")
         gate2Detail("5개 핵심 weight URL을 HEAD 요청으로 확인 중…")
 
         var completed = 0
@@ -252,8 +280,12 @@ fun main() {
 
     sessionButton.onclick = {
         sessionButton.disabled = true
+        coreButton.disabled = true
         document.documentElement?.removeAttribute("data-voice-lab-gate2b")
+        document.documentElement?.removeAttribute("data-voice-lab-gate2c")
         setBadge("session-result", "다운로드 중", "running")
+        setBadge("local-session-result", "대기", "pending")
+        setBadge("codec-session-result", "대기", "pending")
         gate2bDetail("INT8 prefill graph 다운로드 중…")
 
         val startedAt = window.performance.now()
@@ -284,17 +316,11 @@ fun main() {
                     "WASM single-thread InferenceSession.create 실행 중…"
             )
 
-            val externalDataEntry = js("({})")
-            externalDataEntry.path = "moss_tts_global_shared_int8.data"
-            externalDataEntry.data = weightBytes
-
-            val sessionOptions = js("({})")
-            sessionOptions.executionProviders = arrayOf("wasm")
-            sessionOptions.graphOptimizationLevel = "all"
-            sessionOptions.executionMode = "sequential"
-            sessionOptions.externalData = arrayOf(externalDataEntry)
-
-            val sessionPromise: dynamic = ort.InferenceSession.create(modelBytes, sessionOptions)
+            val sessionPromise: dynamic = createSessionPromise(
+                modelBytes,
+                weightBytes,
+                "moss_tts_global_shared_int8.data",
+            )
             sessionPromise.then(
                 { session: dynamic ->
                     int8PrefillSession = session
@@ -314,6 +340,8 @@ fun main() {
                             "session=${sessionMs.toFixed(0)}ms · total=${totalMs.toFixed(0)}ms. " +
                             "다음은 local sampler + codec decoder 연결입니다."
                     )
+                    coreButton.disabled = false
+                    gate2cDetail("Gate 2B PASS. global session을 유지한 채 local + codec session을 추가할 수 있습니다.")
                     null
                 },
                 { error: dynamic ->
@@ -331,6 +359,138 @@ fun main() {
             gate2bDetail("2B FAIL · 다운로드 단계 · ${describeJsError(error)}")
             sessionButton.disabled = false
             null
+        }
+
+        null
+    }
+
+    coreButton.onclick = {
+        coreButton.disabled = true
+        document.documentElement?.removeAttribute("data-voice-lab-gate2c")
+        setBadge("local-session-result", "다운로드 중", "running")
+        setBadge("codec-session-result", "대기", "pending")
+
+        if (int8PrefillSession == null) {
+            document.documentElement?.setAttribute("data-voice-lab-gate2c", "fail")
+            setBadge("local-session-result", "실패", "fail")
+            gate2cDetail("2C FAIL · global prefill session이 메모리에 없습니다.")
+            coreButton.disabled = false
+        } else {
+            val coreStartedAt = window.performance.now()
+            var localModelBytes: dynamic = null
+            var localLoadStartedAt = coreStartedAt
+
+            fun failCore(stage: String, error: dynamic) {
+                document.documentElement?.setAttribute("data-voice-lab-gate2c", "fail")
+                gate2cDetail("2C FAIL · $stage · ${describeJsError(error)}")
+                coreButton.disabled = false
+            }
+
+            fun loadCodec(localReadyAt: Double) {
+                setBadge("codec-session-result", "다운로드 중", "running")
+                gate2cDetail("local sampler PASS · Audio Tokenizer decoder graph 다운로드 중…")
+                var codecModelBytes: dynamic = null
+                val codecStartedAt = window.performance.now()
+
+                window.fetch(CODEC_DECODE_GRAPH, emptyRequestInit()).then { response ->
+                    if (!response.ok) throw IllegalStateException("codec graph HTTP ${response.status}")
+                    response.arrayBuffer()
+                }.then { buffer ->
+                    codecModelBytes = toUint8Array(buffer)
+                    gate2cDetail(
+                        "codec graph ${formatBytes((codecModelBytes.byteLength as Number).toDouble())} 완료 · " +
+                            "44.2 MB decoder weight 다운로드 중…"
+                    )
+                    window.fetch(CODEC_DECODE, emptyRequestInit())
+                }.then { response ->
+                    if (!response.ok) throw IllegalStateException("codec weight HTTP ${response.status}")
+                    response.arrayBuffer()
+                }.then { buffer ->
+                    val codecWeightBytes = toUint8Array(buffer)
+                    setBadge("codec-session-result", "세션 생성 중", "running")
+                    val codecPromise: dynamic = createSessionPromise(
+                        codecModelBytes,
+                        codecWeightBytes,
+                        "moss_audio_tokenizer_decode_shared.data",
+                    )
+                    codecPromise.then(
+                        { session: dynamic ->
+                            codecDecodeSession = session
+                            val readyAt = window.performance.now()
+                            val localTotalMs = localReadyAt - localLoadStartedAt
+                            val codecTotalMs = readyAt - codecStartedAt
+                            val allTotalMs = readyAt - coreStartedAt
+                            val localInputs = (int8LocalSession.inputNames.length as Number).toInt()
+                            val localOutputs = (int8LocalSession.outputNames.length as Number).toInt()
+                            val codecInputs = (session.inputNames.length as Number).toInt()
+                            val codecOutputs = (session.outputNames.length as Number).toInt()
+
+                            setBadge("codec-session-result", "PASS", "pass")
+                            document.documentElement?.setAttribute("data-voice-lab-gate2c", "pass")
+                            gate2cDetail(
+                                "2C PASS · global + local + codec 핵심 세션 동시 유지 성공 · " +
+                                    "local I/O=$localInputs/$localOutputs · codec I/O=$codecInputs/$codecOutputs · " +
+                                    "local=${localTotalMs.toFixed(0)}ms · codec=${codecTotalMs.toFixed(0)}ms · " +
+                                    "2C total=${allTotalMs.toFixed(0)}ms. 다음 Gate는 tokenizer + decode-step + 실제 한국어 1문장 합성입니다."
+                            )
+                            null
+                        },
+                        { error: dynamic ->
+                            setBadge("codec-session-result", "실패", "fail")
+                            failCore("codec session", error)
+                            null
+                        },
+                    )
+                    null
+                }.catch { error ->
+                    setBadge("codec-session-result", "실패", "fail")
+                    failCore("codec download", error)
+                    null
+                }
+            }
+
+            gate2cDetail("INT8 local sampler graph 다운로드 중…")
+            window.fetch(INT8_LOCAL_GRAPH, emptyRequestInit()).then { response ->
+                if (!response.ok) throw IllegalStateException("local graph HTTP ${response.status}")
+                response.arrayBuffer()
+            }.then { buffer ->
+                localModelBytes = toUint8Array(buffer)
+                gate2cDetail(
+                    "local graph ${formatBytes((localModelBytes.byteLength as Number).toDouble())} 완료 · " +
+                        "85 MB local weight 다운로드 중…"
+                )
+                window.fetch(INT8_LOCAL, emptyRequestInit())
+            }.then { response ->
+                if (!response.ok) throw IllegalStateException("local weight HTTP ${response.status}")
+                response.arrayBuffer()
+            }.then { buffer ->
+                val localWeightBytes = toUint8Array(buffer)
+                setBadge("local-session-result", "세션 생성 중", "running")
+                val localPromise: dynamic = createSessionPromise(
+                    localModelBytes,
+                    localWeightBytes,
+                    "moss_tts_local_fixed_sampled_frame_int8.data",
+                )
+                localPromise.then(
+                    { session: dynamic ->
+                        int8LocalSession = session
+                        val localReadyAt = window.performance.now()
+                        setBadge("local-session-result", "PASS", "pass")
+                        loadCodec(localReadyAt)
+                        null
+                    },
+                    { error: dynamic ->
+                        setBadge("local-session-result", "실패", "fail")
+                        failCore("local session", error)
+                        null
+                    },
+                )
+                null
+            }.catch { error ->
+                setBadge("local-session-result", "실패", "fail")
+                failCore("local download", error)
+                null
+            }
         }
 
         null
