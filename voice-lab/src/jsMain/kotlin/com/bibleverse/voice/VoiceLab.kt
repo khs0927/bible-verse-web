@@ -6,7 +6,6 @@ import kotlinx.browser.document
 import kotlinx.browser.window
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
-import org.w3c.fetch.RequestInit
 
 @JsModule("onnxruntime-web")
 @JsNonModule
@@ -21,6 +20,12 @@ private fun status(message: String) {
 
 private fun detail(message: String) {
     (document.getElementById("details") as? HTMLElement)?.textContent = message
+}
+
+private fun describeJsError(error: dynamic): String {
+    val name = error?.name?.toString() ?: "UnknownError"
+    val message = error?.message?.toString() ?: error?.toString() ?: "unknown error"
+    return "$name: $message"
 }
 
 fun main() {
@@ -57,13 +62,13 @@ fun main() {
             ort.env.wasm.proxy = false
         } catch (error: dynamic) {
             runtimeReady = false
-            status("ONNX Runtime 설정 실패: ${error?.message ?: error}")
+            status("ONNX Runtime 설정 실패: ${describeJsError(error)}")
         }
 
         if (runtimeReady) {
             status("2/3 MOSS-TTS-Nano 공식 브라우저 메타데이터 확인 중…")
 
-            window.fetch(MODEL_META_URL, RequestInit()).then { response ->
+            window.fetch(MODEL_META_URL).then { response ->
                 if (!response.ok) {
                     throw IllegalStateException("HTTP ${response.status}")
                 }
@@ -87,7 +92,7 @@ fun main() {
                 null
             }.catch { error ->
                 document.documentElement?.setAttribute("data-voice-lab-gate1", "fail")
-                status("사전검증 실패: ${error.message ?: error}")
+                status("사전검증 실패: ${describeJsError(error)}")
                 null
             }
         }
