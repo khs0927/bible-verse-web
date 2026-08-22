@@ -12,7 +12,9 @@ import org.w3c.fetch.RequestInit
 
 private const val TOKENIZER_URL =
     "https://huggingface.co/OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX/resolve/main/tokenizer.model"
-private const val KOREAN_TEST_SENTENCE = "하나님은 너를 정말 사랑하신단다."
+internal const val KOREAN_TEST_SENTENCE = "하나님은 너를 정말 사랑하신단다."
+
+internal var koreanGateTokenIds: IntArray? = null
 
 private fun tokenizerRequestInit(): RequestInit = js("({ cache: 'no-store' })")
 
@@ -39,6 +41,7 @@ private val tokenizerGateInstaller = run {
     if (button != null) {
         button.onclick = {
             button.disabled = true
+            koreanGateTokenIds = null
             document.documentElement?.removeAttribute("data-voice-lab-gate3a")
             tokenizerBadge("다운로드 중", "running")
             tokenizerDetail("공식 tokenizer.model 약 471 KB 다운로드 중…")
@@ -79,6 +82,7 @@ private val tokenizerGateInstaller = run {
                     throw IllegalStateException("음수 token id가 생성되었습니다.")
                 }
 
+                koreanGateTokenIds = ids
                 val elapsedMs = window.performance.now() - startedAt
                 val previewIds = ids.take(12).joinToString(",")
                 val previewPieces = pieces.take(8).joinToString(" | ")
@@ -88,11 +92,12 @@ private val tokenizerGateInstaller = run {
                 tokenizerBadge("PASS", "pass")
                 tokenizerDetail(
                     "3A PASS · 한국어 ${ids.size} tokens · ${elapsedMs.asDynamic().toFixed(0)}ms · " +
-                        "ids=[$previewIds] · pieces=$previewPieces. 다음은 INT8 decode-step + builtin voice + 실제 WAV 합성입니다."
+                        "ids=[$previewIds] · pieces=$previewPieces. 다음은 INT8 decode-step + Xiaoyu builtin voice + 실제 WAV 합성입니다."
                 )
                 button.disabled = false
                 null
             }.catch { error ->
+                koreanGateTokenIds = null
                 document.documentElement?.setAttribute("data-voice-lab-gate3a", "fail")
                 tokenizerBadge("실패", "fail")
                 tokenizerDetail("3A FAIL · ${tokenizerError(error)}")
