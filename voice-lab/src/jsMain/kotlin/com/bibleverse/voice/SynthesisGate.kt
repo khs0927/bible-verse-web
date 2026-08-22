@@ -82,8 +82,10 @@ private fun jsDims(vararg values: Int): dynamic {
     return output
 }
 
-private fun tensor(type: String, data: dynamic, dims: dynamic): dynamic =
-    js("new ort.Tensor(type, data, dims)")
+private fun tensor(type: String, data: dynamic, dims: dynamic): dynamic {
+    val tensorCtor: dynamic = ort.Tensor
+    return js("Reflect.construct(tensorCtor, [type, data, dims])")
+}
 
 private fun intTensor(values: IntArray, vararg dims: Int): dynamic =
     tensor("int32", int32Array(values), jsDims(*dims))
