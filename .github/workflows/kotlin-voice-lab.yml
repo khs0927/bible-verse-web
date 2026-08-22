@@ -39,3 +39,28 @@ jobs:
 
       - name: Build Kotlin JS voice lab
         run: gradle :voice-lab:jsBrowserProductionWebpack --no-daemon --stacktrace
+
+      - name: Verify production bundle
+        run: |
+          test -f voice-lab/build/dist/js/productionExecutable/index.html
+          test -f voice-lab/build/dist/js/productionExecutable/voice-lab.js
+          ls -lh voice-lab/build/dist/js/productionExecutable
+
+      - name: Install WebKit test runtime
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps webkit
+
+      - name: Run WebKit Gate 1 preflight
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory voice-lab/build/dist/js/productionExecutable > /tmp/voice-lab-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          for i in {1..20}; do
+            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then
+              break
+            fi
+            sleep 0.5
+          done
+          curl --fail --silent http://127.0.0.1:4173/ > /dev/null
+          node voice-lab/e2e/preflight.mjs
