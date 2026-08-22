@@ -6,6 +6,7 @@ import kotlinx.browser.document
 import kotlinx.browser.window
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
+import org.w3c.fetch.RequestInit
 
 @JsModule("onnxruntime-web")
 @JsNonModule
@@ -27,6 +28,8 @@ private fun describeJsError(error: dynamic): String {
     val message = error?.message?.toString() ?: error?.toString() ?: "unknown error"
     return "$name: $message"
 }
+
+private fun emptyRequestInit(): RequestInit = js("({})")
 
 fun main() {
     status("Kotlin/JS 런타임 로드 완료 — Gate 1 시작 가능")
@@ -68,7 +71,7 @@ fun main() {
         if (runtimeReady) {
             status("2/3 MOSS-TTS-Nano 공식 브라우저 메타데이터 확인 중…")
 
-            window.fetch(MODEL_META_URL).then { response ->
+            window.fetch(MODEL_META_URL, emptyRequestInit()).then { response ->
                 if (!response.ok) {
                     throw IllegalStateException("HTTP ${response.status}")
                 }
