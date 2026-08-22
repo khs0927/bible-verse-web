@@ -58,8 +58,30 @@
         <p id="gate2-details" class="note">Gate 1 PASS 후 활성화됩니다.</p>
     </section>
 
+    <section class="gate2" aria-labelledby="gate2b-title">
+        <p class="step-label">GATE 2B</p>
+        <h2 id="gate2b-title">INT8 실제 ONNX 세션 로드</h2>
+        <p class="gate-copy">
+            2A에서 통과한 INT8 prefill graph(약 478 KB)와 shared weight(약 111 MB)를 실제로 내려받아
+            WASM single-thread ONNX 세션을 생성합니다. 아직 음성 합성은 하지 않습니다.
+        </p>
+        <div class="candidate">
+            <div>
+                <strong>INT8 global prefill session</strong>
+                <span>ONNX + externalData · WASM · single-thread</span>
+            </div>
+            <span id="session-result" class="badge pending">대기</span>
+        </div>
+        <button id="run-session-probe" class="secondary" type="button" disabled>2B 실제 세션 로드 시작</button>
+        <p id="gate2b-details" class="note">Gate 2A PASS 후 활성화됩니다.</p>
+        <p class="warning">
+            한국어 지원은 별도 음질 Gate에서 판정합니다. INT8 파생 모델의 모델 카드 언어 표기가 제한적이므로,
+            세션 로드 성공만으로 한국어 적합성을 인정하지 않습니다.
+        </p>
+    </section>
+
     <p class="note">
-        2A 통과 후에만 2B에서 채택 후보의 실제 ONNX session + external data를 로드합니다.
+        2B 통과 후 local sampler와 Audio Tokenizer decoder를 연결하고, 그 다음에만 짧은 한국어 한 문장 합성을 시도합니다.
         실제 iPhone 하드웨어 검증은 자동 WebKit 검증 뒤 별도로 진행합니다.
     </p>
 </main>
