@@ -22,7 +22,7 @@ body {
     box-shadow: 0 18px 45px rgba(84, 58, 33, .12);
 }
 
-.eyebrow {
+.eyebrow, .step-label {
     margin: 0 0 8px;
     font-size: 12px;
     font-weight: 800;
@@ -36,12 +36,18 @@ h1 {
     line-height: 1.15;
 }
 
-.copy, .note, #details {
+h2 {
+    margin: 0;
+    font-size: 21px;
+}
+
+.copy, .gate-copy, .note, #details, #gate2-details {
     line-height: 1.7;
     word-break: keep-all;
 }
 
 .copy { margin: 18px 0 20px; }
+.gate-copy { margin: 10px 0 16px; font-size: 14px; color: #6e6258; }
 
 .panel {
     padding: 18px;
@@ -67,5 +73,39 @@ button {
     -webkit-tap-highlight-color: transparent;
 }
 
-button:active { transform: translateY(1px); }
+button.secondary { margin-top: 14px; background: #f7dfbd; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button:not(:disabled):active { transform: translateY(1px); }
+
+.gate2 {
+    margin-top: 28px;
+    padding-top: 24px;
+    border-top: 1px solid #efe5d9;
+}
+
+.candidate {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid #f3ece4;
+}
+
+.candidate div { min-width: 0; }
+.candidate strong { display: block; font-size: 15px; }
+.candidate span:not(.badge) { display: block; margin-top: 4px; font-size: 12px; color: #7b7169; }
+
+.badge {
+    flex: none;
+    padding: 7px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+    background: #f1eee9;
+}
+.badge.pass { background: #e6f5e9; }
+.badge.fail { background: #fde9e5; }
+.badge.running { background: #fff0c9; }
+
 .note { margin: 16px 2px 0; font-size: 13px; color: #7b7169; }
