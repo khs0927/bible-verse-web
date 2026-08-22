@@ -371,16 +371,16 @@ private fun decodeLoop(
     val audioPad = (cfg.audio_pad_token_id as Number).toInt()
     val assistantSlot = (cfg.audio_assistant_slot_token_id as Number).toInt()
 
-    runLocalFrame(runtime, state, nVq, codebookSize, { shouldContinue, frame ->
+    runLocalFrame(runtime, state, nVq, codebookSize, local@{ shouldContinue, frame ->
         if (!shouldContinue) {
             disposeTensor(state.globalHidden)
             disposeResult(state.pastResult)
             onDone(state.frames)
-            return@runLocalFrame
+            return@local
         }
         if (frame.size < nVq) {
             onFailure(IllegalStateException("local frame too short: ${frame.size}/$nVq"))
-            return@runLocalFrame
+            return@local
         }
 
         val audioRow = IntArray(rowWidth) { index -> if (index == 0) assistantSlot else audioPad }
@@ -594,11 +594,11 @@ private fun failSynthesis(error: dynamic) {
 private val synthesisGateInstaller = run {
     val button = document.getElementById("run-synthesis") as? HTMLButtonElement
     if (button != null) {
-        button.onclick = {
+        button.onclick = click@{
             val tokens = koreanGateTokenIds
             if (tokens == null || tokens.isEmpty()) {
                 failSynthesis(IllegalStateException("먼저 Gate 3A 한국어 토큰화를 통과해야 합니다."))
-                return@onclick null
+                return@click null
             }
 
             button.disabled = true
@@ -612,7 +612,7 @@ private val synthesisGateInstaller = run {
             } catch (error: dynamic) {
                 failSynthesis(error)
                 button.disabled = false
-                return@onclick null
+                return@click null
             }
 
             loadRuntime({ runtime ->
