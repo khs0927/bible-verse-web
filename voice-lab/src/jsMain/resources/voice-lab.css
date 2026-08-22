@@ -41,7 +41,7 @@ h2 {
     font-size: 21px;
 }
 
-.copy, .gate-copy, .note, #details, #gate2-details {
+.copy, .gate-copy, .note, .warning, #details, #gate2-details, #gate2b-details {
     line-height: 1.7;
     word-break: keep-all;
 }
@@ -109,3 +109,11 @@ button:not(:disabled):active { transform: translateY(1px); }
 .badge.running { background: #fff0c9; }
 
 .note { margin: 16px 2px 0; font-size: 13px; color: #7b7169; }
+.warning {
+    margin: 12px 0 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: #fff6db;
+    font-size: 12px;
+    color: #6f5a28;
+}
