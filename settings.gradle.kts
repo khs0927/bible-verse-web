@@ -4,3 +4,4 @@ plugins {
 
 rootProject.name = "bible-verse-web"
 include("app")
+include("voice-lab")
