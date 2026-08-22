@@ -24,7 +24,14 @@ private fun detail(message: String) {
 }
 
 fun main() {
-    val button = document.getElementById("run-preflight") as? HTMLButtonElement ?: return
+    status("Kotlin/JS 런타임 로드 완료 — Gate 1 시작 가능")
+    document.documentElement?.setAttribute("data-voice-lab-runtime", "ready")
+
+    val button = document.getElementById("run-preflight") as? HTMLButtonElement
+    if (button == null) {
+        status("사전검증 실패: 시작 버튼을 찾을 수 없습니다.")
+        return
+    }
 
     val wasmAvailable = js("typeof WebAssembly !== 'undefined'") as Boolean
     val webGpuAvailable = js("typeof navigator !== 'undefined' && 'gpu' in navigator") as Boolean
@@ -34,6 +41,12 @@ fun main() {
         "Kotlin/JS ready · WASM=$wasmAvailable · WebGPU=$webGpuAvailable · " +
             "logical cores=$hardwareConcurrency · first test uses WASM single-thread"
     )
+
+    if (!wasmAvailable) {
+        status("사전검증 실패: 이 브라우저에서 WebAssembly를 사용할 수 없습니다.")
+        button.disabled = true
+        return
+    }
 
     button.onclick = {
         status("1/3 ONNX Runtime 초기화 확인 중…")
@@ -64,6 +77,7 @@ fun main() {
                     throw IllegalStateException("MOSS browser metadata에 필수 ONNX graph가 없습니다.")
                 }
 
+                document.documentElement?.setAttribute("data-voice-lab-gate1", "pass")
                 status("3/3 통과 — Kotlin/JS + ONNX Runtime Web + MOSS 공식 모델 경로 준비 완료")
                 detail(
                     "WASM single-thread preflight PASS · prefill=$hasPrefill · " +
@@ -72,6 +86,7 @@ fun main() {
                 )
                 null
             }.catch { error ->
+                document.documentElement?.setAttribute("data-voice-lab-gate1", "fail")
                 status("사전검증 실패: ${error.message ?: error}")
                 null
             }
