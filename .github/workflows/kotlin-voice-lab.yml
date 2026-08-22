@@ -51,7 +51,7 @@ jobs:
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps webkit
 
-      - name: Run WebKit Gate 1 preflight
+      - name: Run WebKit Gate 1-2A checks
         run: |
           python3 -m http.server 4173 --bind 127.0.0.1 --directory voice-lab/build/web-dist > /tmp/voice-lab-http.log 2>&1 &
           SERVER_PID=$!
@@ -64,3 +64,4 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:4173/ > /dev/null
           node voice-lab/e2e/preflight.mjs
+          node voice-lab/e2e/session-load.mjs
