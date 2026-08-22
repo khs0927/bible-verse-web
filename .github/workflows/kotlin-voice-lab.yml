@@ -51,7 +51,7 @@ jobs:
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps webkit
 
-      - name: Run WebKit Gate 1-2A checks
+      - name: Run WebKit Gate 1-2C checks
         run: |
           python3 -m http.server 4173 --bind 127.0.0.1 --directory voice-lab/build/web-dist > /tmp/voice-lab-http.log 2>&1 &
           SERVER_PID=$!
