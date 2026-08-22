@@ -9,11 +9,10 @@
 <body>
 <main class="card">
     <p class="eyebrow">BIBLE FRIEND · KOTLIN VOICE LAB</p>
-    <h1>무료 온디바이스 음성 1단계 검증</h1>
+    <h1>무료 온디바이스 음성 검증</h1>
     <p class="copy">
-        첫 단계에서는 음성을 아직 생성하지 않습니다. iPhone/Android 브라우저에서 가장 보수적인
-        WASM single-thread 경로로 Kotlin/JS, ONNX Runtime Web, MOSS-TTS-Nano 공식 모델 자산 접근이
-        모두 가능한지 먼저 확인합니다.
+        Kotlin/JS + ONNX Runtime Web을 실제 WebKit에서 하나씩 검증합니다. 큰 모델은 무작정 내려받지 않고
+        먼저 접근 가능성과 다운로드 규모를 확인한 뒤 다음 Gate로 진행합니다.
     </p>
 
     <section class="panel">
@@ -23,8 +22,45 @@
 
     <button id="run-preflight" type="button">1단계 사전검증 시작</button>
 
+    <section class="gate2" aria-labelledby="gate2-title">
+        <p class="step-label">GATE 2A</p>
+        <h2 id="gate2-title">모바일용 모델 크기 검증</h2>
+        <p class="gate-copy">
+            FP32 공식 모델과 INT8 후보의 핵심 외부 weight 파일을 HEAD 요청으로 확인합니다.
+            이 단계에서는 수백 MB 모델 본문을 다운로드하지 않습니다.
+        </p>
+
+        <div class="candidate">
+            <div>
+                <strong>공식 FP32</strong>
+                <span>LM 약 673 MB · decoder 포함 약 718 MB</span>
+            </div>
+            <span id="fp32-result" class="badge pending">대기</span>
+        </div>
+
+        <div class="candidate">
+            <div>
+                <strong>INT8 모바일 후보</strong>
+                <span>LM 약 198 MB · decoder 포함 약 243 MB</span>
+            </div>
+            <span id="int8-result" class="badge pending">대기</span>
+        </div>
+
+        <div class="candidate">
+            <div>
+                <strong>Audio Tokenizer decoder</strong>
+                <span>공통 decode weight 약 44.2 MB</span>
+            </div>
+            <span id="codec-result" class="badge pending">대기</span>
+        </div>
+
+        <button id="run-size-probe" class="secondary" type="button" disabled>2A 모델 크기 검증 시작</button>
+        <p id="gate2-details" class="note">Gate 1 PASS 후 활성화됩니다.</p>
+    </section>
+
     <p class="note">
-        PASS 후에만 2단계로 넘어갑니다: 실제 ONNX session load → 짧은 한국어 한 문장 합성 → 속도/안정성 측정.
+        2A 통과 후에만 2B에서 채택 후보의 실제 ONNX session + external data를 로드합니다.
+        실제 iPhone 하드웨어 검증은 자동 WebKit 검증 뒤 별도로 진행합니다.
     </p>
 </main>
 <script src="voice-lab.js"></script>
