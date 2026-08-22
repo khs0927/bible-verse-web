@@ -294,30 +294,41 @@ fun main() {
             sessionOptions.executionMode = "sequential"
             sessionOptions.externalData = arrayOf(externalDataEntry)
 
-            ort.InferenceSession.create(modelBytes, sessionOptions)
-        }.then { session ->
-            int8PrefillSession = session
-            val readyAt = window.performance.now()
-            val graphMs = graphReadyAt - startedAt
-            val weightMs = weightReadyAt - graphReadyAt
-            val sessionMs = readyAt - weightReadyAt
-            val totalMs = readyAt - startedAt
-            val inputCount = (session.inputNames.length as Number).toInt()
-            val outputCount = (session.outputNames.length as Number).toInt()
+            val sessionPromise: dynamic = ort.InferenceSession.create(modelBytes, sessionOptions)
+            sessionPromise.then(
+                { session: dynamic ->
+                    int8PrefillSession = session
+                    val readyAt = window.performance.now()
+                    val graphMs = graphReadyAt - startedAt
+                    val weightMs = weightReadyAt - graphReadyAt
+                    val sessionMs = readyAt - weightReadyAt
+                    val totalMs = readyAt - startedAt
+                    val inputCount = (session.inputNames.length as Number).toInt()
+                    val outputCount = (session.outputNames.length as Number).toInt()
 
-            document.documentElement?.setAttribute("data-voice-lab-gate2b", "pass")
-            setBadge("session-result", "PASS", "pass")
-            gate2bDetail(
-                "2B PASS · INT8 prefill ONNX session 생성 성공 · inputs=$inputCount · outputs=$outputCount · " +
-                    "graph=${graphMs.toFixed(0)}ms · weight=${weightMs.toFixed(0)}ms · " +
-                    "session=${sessionMs.toFixed(0)}ms · total=${totalMs.toFixed(0)}ms. " +
-                    "다음은 local sampler + codec decoder 연결입니다."
+                    document.documentElement?.setAttribute("data-voice-lab-gate2b", "pass")
+                    setBadge("session-result", "PASS", "pass")
+                    gate2bDetail(
+                        "2B PASS · INT8 prefill ONNX session 생성 성공 · inputs=$inputCount · outputs=$outputCount · " +
+                            "graph=${graphMs.toFixed(0)}ms · weight=${weightMs.toFixed(0)}ms · " +
+                            "session=${sessionMs.toFixed(0)}ms · total=${totalMs.toFixed(0)}ms. " +
+                            "다음은 local sampler + codec decoder 연결입니다."
+                    )
+                    null
+                },
+                { error: dynamic ->
+                    document.documentElement?.setAttribute("data-voice-lab-gate2b", "fail")
+                    setBadge("session-result", "실패", "fail")
+                    gate2bDetail("2B FAIL · ${describeJsError(error)}")
+                    sessionButton.disabled = false
+                    null
+                },
             )
             null
         }.catch { error ->
             document.documentElement?.setAttribute("data-voice-lab-gate2b", "fail")
             setBadge("session-result", "실패", "fail")
-            gate2bDetail("2B FAIL · ${describeJsError(error)}")
+            gate2bDetail("2B FAIL · 다운로드 단계 · ${describeJsError(error)}")
             sessionButton.disabled = false
             null
         }
