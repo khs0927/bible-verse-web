@@ -24,7 +24,7 @@ permissions:
 jobs:
   voice-lab:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -51,7 +51,7 @@ jobs:
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps webkit
 
-      - name: Run WebKit Gate 1-3A checks
+      - name: Run WebKit Gate 1-3B checks
         run: |
           python3 -m http.server 4173 --bind 127.0.0.1 --directory voice-lab/build/web-dist > /tmp/voice-lab-http.log 2>&1 &
           SERVER_PID=$!
@@ -66,3 +66,13 @@ jobs:
           node voice-lab/e2e/preflight.mjs
           node voice-lab/e2e/tokenizer.mjs
           node voice-lab/e2e/session-load.mjs
+          node voice-lab/e2e/synthesis.mjs
+
+      - name: Upload Korean WAV quality gate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moss-korean-gate3b
+          path: voice-lab/build/quality/
+          if-no-files-found: warn
+          retention-days: 7
