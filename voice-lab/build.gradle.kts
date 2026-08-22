@@ -16,7 +16,7 @@ kotlin {
         val jsMain by getting {
             dependencies {
                 implementation("org.jetbrains.kotlinx:kotlinx-browser:0.5.0")
-                implementation(npm("onnxruntime-web", "1.25.0"))
+                implementation(npm("onnxruntime-web", "1.27.0"))
             }
         }
     }
