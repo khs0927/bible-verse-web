@@ -8,7 +8,11 @@ repositories {
 
 kotlin {
     js {
-        browser()
+        browser {
+            distribution {
+                outputDirectory.set(projectDir.resolve("build/web-dist"))
+            }
+        }
         binaries.executable()
     }
 
