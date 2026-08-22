@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Bible Friend Voice Lab</title>
+    <link rel="stylesheet" href="voice-lab.css" />
+</head>
+<body>
+<main class="card">
+    <p class="eyebrow">BIBLE FRIEND · KOTLIN VOICE LAB</p>
+    <h1>무료 온디바이스 음성 1단계 검증</h1>
+    <p class="copy">
+        첫 단계에서는 음성을 아직 생성하지 않습니다. iPhone/Android 브라우저에서 가장 보수적인
+        WASM single-thread 경로로 Kotlin/JS, ONNX Runtime Web, MOSS-TTS-Nano 공식 모델 자산 접근이
+        모두 가능한지 먼저 확인합니다.
+    </p>
+
+    <section class="panel">
+        <strong id="status">검증 대기 중</strong>
+        <p id="details">브라우저 정보를 확인하는 중…</p>
+    </section>
+
+    <button id="run-preflight" type="button">1단계 사전검증 시작</button>
+
+    <p class="note">
+        PASS 후에만 2단계로 넘어갑니다: 실제 ONNX session load → 짧은 한국어 한 문장 합성 → 속도/안정성 측정.
+    </p>
+</main>
+<script src="voice-lab.js"></script>
+</body>
+</html>
