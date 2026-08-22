@@ -19,12 +19,17 @@ private const val FP32_GLOBAL =
     "https://huggingface.co/OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX/resolve/main/moss_tts_global_shared.data"
 private const val FP32_LOCAL =
     "https://huggingface.co/OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX/resolve/main/moss_tts_local_shared.data"
-private const val INT8_GLOBAL =
-    "https://huggingface.co/REALBITS/MOSS-TTS-Nano-100M-ONNX-int8/resolve/main/moss_tts_global_shared_int8.data"
-private const val INT8_LOCAL =
-    "https://huggingface.co/REALBITS/MOSS-TTS-Nano-100M-ONNX-int8/resolve/main/moss_tts_local_fixed_sampled_frame_int8.data"
+private const val INT8_BASE =
+    "https://huggingface.co/REALBITS/MOSS-TTS-Nano-100M-ONNX-int8/resolve/main"
+private const val INT8_PREFILL = "$INT8_BASE/moss_tts_prefill.onnx"
+private const val INT8_GLOBAL = "$INT8_BASE/moss_tts_global_shared_int8.data"
+private const val INT8_LOCAL = "$INT8_BASE/moss_tts_local_fixed_sampled_frame_int8.data"
 private const val CODEC_DECODE =
     "https://huggingface.co/OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX/resolve/main/moss_audio_tokenizer_decode_shared.data"
+private const val ORT_WASM_BASE =
+    "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/"
+
+private var int8PrefillSession: dynamic = null
 
 private fun status(message: String) {
     (document.getElementById("status") as? HTMLElement)?.textContent = message
@@ -36,6 +41,10 @@ private fun detail(message: String) {
 
 private fun gate2Detail(message: String) {
     (document.getElementById("gate2-details") as? HTMLElement)?.textContent = message
+}
+
+private fun gate2bDetail(message: String) {
+    (document.getElementById("gate2b-details") as? HTMLElement)?.textContent = message
 }
 
 private fun setBadge(id: String, text: String, state: String) {
@@ -52,15 +61,18 @@ private fun describeJsError(error: dynamic): String {
 
 private fun emptyRequestInit(): RequestInit = js("({})")
 private fun headRequestInit(): RequestInit = js("({ method: 'HEAD', cache: 'no-store' })")
+private fun toUint8Array(buffer: dynamic): dynamic = js("new Uint8Array(buffer)")
 
 private fun formatContentLength(raw: String?): String {
     val bytes = raw?.toDoubleOrNull() ?: return "접근 가능"
-    return when {
-        bytes >= 1_000_000_000.0 -> "${(bytes / 1_000_000_000.0).toFixed(2)} GB"
-        bytes >= 1_000_000.0 -> "${(bytes / 1_000_000.0).toFixed(1)} MB"
-        bytes >= 1_000.0 -> "${(bytes / 1_000.0).toFixed(1)} KB"
-        else -> "${bytes.toLong()} B"
-    }
+    return formatBytes(bytes)
+}
+
+private fun formatBytes(bytes: Double): String = when {
+    bytes >= 1_000_000_000.0 -> "${(bytes / 1_000_000_000.0).toFixed(2)} GB"
+    bytes >= 1_000_000.0 -> "${(bytes / 1_000_000.0).toFixed(1)} MB"
+    bytes >= 1_000.0 -> "${(bytes / 1_000.0).toFixed(1)} KB"
+    else -> "${bytes.toLong()} B"
 }
 
 private fun Double.toFixed(digits: Int): String = asDynamic().toFixed(digits) as String
@@ -91,8 +103,9 @@ fun main() {
 
     val button = document.getElementById("run-preflight") as? HTMLButtonElement
     val sizeButton = document.getElementById("run-size-probe") as? HTMLButtonElement
+    val sessionButton = document.getElementById("run-session-probe") as? HTMLButtonElement
 
-    if (button == null || sizeButton == null) {
+    if (button == null || sizeButton == null || sessionButton == null) {
         status("사전검증 실패: 테스트 버튼을 찾을 수 없습니다.")
         return
     }
@@ -119,6 +132,7 @@ fun main() {
         try {
             ort.env.wasm.numThreads = 1
             ort.env.wasm.proxy = false
+            ort.env.wasm.wasmPaths = ORT_WASM_BASE
         } catch (error: dynamic) {
             runtimeReady = false
             status("ONNX Runtime 설정 실패: ${describeJsError(error)}")
@@ -161,10 +175,13 @@ fun main() {
 
     sizeButton.onclick = {
         sizeButton.disabled = true
+        sessionButton.disabled = true
         document.documentElement?.removeAttribute("data-voice-lab-gate2a")
+        document.documentElement?.removeAttribute("data-voice-lab-gate2b")
         setBadge("fp32-result", "확인 중", "running")
         setBadge("int8-result", "확인 중", "running")
         setBadge("codec-result", "확인 중", "running")
+        setBadge("session-result", "대기", "pending")
         gate2Detail("5개 핵심 weight URL을 HEAD 요청으로 확인 중…")
 
         var completed = 0
@@ -184,6 +201,8 @@ fun main() {
                             "다운로드가 약 66% 작으므로 Gate 2B는 INT8 후보만 실제 session load로 검증합니다. " +
                             "한국어 음질은 아직 검증 전입니다. ${observed.joinToString(" · ")}"
                     )
+                    sessionButton.disabled = false
+                    gate2bDetail("Gate 2A PASS. INT8 prefill + 111 MB shared weight 실제 로드를 시작할 수 있습니다.")
                 } else {
                     document.documentElement?.setAttribute("data-voice-lab-gate2a", "fail")
                     gate2Detail("2A FAIL · 브라우저에서 접근할 수 없는 핵심 자산이 있습니다. 실패=$failures")
@@ -227,6 +246,81 @@ fun main() {
             observed += "codec-decode $it"
             setBadge("codec-result", "접근 가능", "pass")
         }, { fail("codec-result", it) }, ::finishOne)
+
+        null
+    }
+
+    sessionButton.onclick = {
+        sessionButton.disabled = true
+        document.documentElement?.removeAttribute("data-voice-lab-gate2b")
+        setBadge("session-result", "다운로드 중", "running")
+        gate2bDetail("INT8 prefill graph 다운로드 중…")
+
+        val startedAt = window.performance.now()
+        var graphReadyAt = startedAt
+        var weightReadyAt = startedAt
+        var modelBytes: dynamic = null
+
+        window.fetch(INT8_PREFILL, emptyRequestInit()).then { response ->
+            if (!response.ok) throw IllegalStateException("prefill HTTP ${response.status}")
+            response.arrayBuffer()
+        }.then { buffer ->
+            modelBytes = toUint8Array(buffer)
+            graphReadyAt = window.performance.now()
+            gate2bDetail(
+                "prefill ${formatBytes((modelBytes.byteLength as Number).toDouble())} 완료 · " +
+                    "INT8 shared weight 111 MB 다운로드 중…"
+            )
+            window.fetch(INT8_GLOBAL, emptyRequestInit())
+        }.then { response ->
+            if (!response.ok) throw IllegalStateException("weight HTTP ${response.status}")
+            response.arrayBuffer()
+        }.then { buffer ->
+            val weightBytes = toUint8Array(buffer)
+            weightReadyAt = window.performance.now()
+            setBadge("session-result", "세션 생성 중", "running")
+            gate2bDetail(
+                "weight ${formatBytes((weightBytes.byteLength as Number).toDouble())} 완료 · " +
+                    "WASM single-thread InferenceSession.create 실행 중…"
+            )
+
+            val externalDataEntry = js("({})")
+            externalDataEntry.path = "moss_tts_global_shared_int8.data"
+            externalDataEntry.data = weightBytes
+
+            val sessionOptions = js("({})")
+            sessionOptions.executionProviders = arrayOf("wasm")
+            sessionOptions.graphOptimizationLevel = "all"
+            sessionOptions.executionMode = "sequential"
+            sessionOptions.externalData = arrayOf(externalDataEntry)
+
+            ort.InferenceSession.create(modelBytes, sessionOptions)
+        }.then { session ->
+            int8PrefillSession = session
+            val readyAt = window.performance.now()
+            val graphMs = graphReadyAt - startedAt
+            val weightMs = weightReadyAt - graphReadyAt
+            val sessionMs = readyAt - weightReadyAt
+            val totalMs = readyAt - startedAt
+            val inputCount = (session.inputNames.length as Number).toInt()
+            val outputCount = (session.outputNames.length as Number).toInt()
+
+            document.documentElement?.setAttribute("data-voice-lab-gate2b", "pass")
+            setBadge("session-result", "PASS", "pass")
+            gate2bDetail(
+                "2B PASS · INT8 prefill ONNX session 생성 성공 · inputs=$inputCount · outputs=$outputCount · " +
+                    "graph=${graphMs.toFixed(0)}ms · weight=${weightMs.toFixed(0)}ms · " +
+                    "session=${sessionMs.toFixed(0)}ms · total=${totalMs.toFixed(0)}ms. " +
+                    "다음은 local sampler + codec decoder 연결입니다."
+            )
+            null
+        }.catch { error ->
+            document.documentElement?.setAttribute("data-voice-lab-gate2b", "fail")
+            setBadge("session-result", "실패", "fail")
+            gate2bDetail("2B FAIL · ${describeJsError(error)}")
+            sessionButton.disabled = false
+            null
+        }
 
         null
     }
