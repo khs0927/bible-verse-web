@@ -20,7 +20,7 @@ page.on("requestfailed", (request) => {
   console.error(`[browser:requestfailed] ${message}`);
 });
 page.on("response", (response) => {
-  if (!response.ok()) {
+  if (response.status() >= 400) {
     const message = `${response.status()} ${response.url()}`;
     failures.push(`http: ${message}`);
     console.error(`[browser:http] ${message}`);
@@ -30,17 +30,15 @@ page.on("response", (response) => {
 async function snapshot(label) {
   const status = await page.locator("#status").textContent().catch(() => null);
   const details = await page.locator("#details").textContent().catch(() => null);
-  const buttonCount = await page.locator("#run-preflight").count();
-  const buttonDisabled = buttonCount
-    ? await page.locator("#run-preflight").isDisabled().catch(() => null)
-    : null;
   const runtime = await page.locator("html").getAttribute("data-voice-lab-runtime").catch(() => null);
-  const gate = await page.locator("html").getAttribute("data-voice-lab-gate1").catch(() => null);
+  const gate1 = await page.locator("html").getAttribute("data-voice-lab-gate1").catch(() => null);
+  const gate2a = await page.locator("html").getAttribute("data-voice-lab-gate2a").catch(() => null);
+  const gate2Details = await page.locator("#gate2-details").textContent().catch(() => null);
 
   console.log(`[voice-lab:${label}] status=${JSON.stringify(status)}`);
   console.log(`[voice-lab:${label}] details=${JSON.stringify(details)}`);
-  console.log(`[voice-lab:${label}] buttonCount=${buttonCount} disabled=${buttonDisabled}`);
-  console.log(`[voice-lab:${label}] runtime=${runtime} gate1=${gate}`);
+  console.log(`[voice-lab:${label}] runtime=${runtime} gate1=${gate1} gate2a=${gate2a}`);
+  console.log(`[voice-lab:${label}] gate2=${JSON.stringify(gate2Details)}`);
 }
 
 try {
@@ -70,14 +68,12 @@ try {
         ok: false,
         name: error?.name ?? "UnknownError",
         message: error?.message ?? String(error),
-        stack: error?.stack ?? null,
       };
     }
   }, MODEL_META_URL);
   console.log(`[voice-lab:native-fetch] ${JSON.stringify(nativeFetchProbe)}`);
 
   await page.getByRole("button", { name: "1단계 사전검증 시작" }).click();
-  await snapshot("clicked");
 
   await page.waitForFunction(
     () => {
@@ -89,18 +85,43 @@ try {
     { timeout: 45_000 },
   );
 
-  await snapshot("finished");
+  await snapshot("gate1-finished");
 
-  const gate = await page.locator("html").getAttribute("data-voice-lab-gate1");
+  const gate1 = await page.locator("html").getAttribute("data-voice-lab-gate1");
   const status = await page.locator("#status").innerText();
-  const details = await page.locator("#details").innerText();
-
-  if (gate !== "pass" || !status.includes("3/3 통과")) {
-    throw new Error(`Gate 1 failed: ${status} / ${details}`);
+  if (gate1 !== "pass" || !status.includes("3/3 통과")) {
+    throw new Error(`Gate 1 failed: ${status}`);
   }
 
-  console.log(`[voice-lab] PASS ${status}`);
-  console.log(`[voice-lab] ${details}`);
+  const sizeButton = page.getByRole("button", { name: "2A 모델 크기 검증 시작" });
+  if (await sizeButton.isDisabled()) {
+    throw new Error("Gate 2A button stayed disabled after Gate 1 PASS");
+  }
+
+  await sizeButton.click();
+  await page.waitForFunction(
+    () => ["pass", "fail"].includes(document.documentElement.dataset.voiceLabGate2a ?? ""),
+    undefined,
+    { timeout: 60_000 },
+  );
+
+  await snapshot("gate2a-finished");
+
+  const gate2a = await page.locator("html").getAttribute("data-voice-lab-gate2a");
+  const gate2Details = await page.locator("#gate2-details").innerText();
+  const fp32 = await page.locator("#fp32-result").innerText();
+  const int8 = await page.locator("#int8-result").innerText();
+  const codec = await page.locator("#codec-result").innerText();
+
+  if (gate2a !== "pass") {
+    throw new Error(`Gate 2A failed: ${gate2Details}`);
+  }
+  if (![fp32, int8, codec].every((value) => value === "접근 가능")) {
+    throw new Error(`Gate 2A badges unexpected: fp32=${fp32}, int8=${int8}, codec=${codec}`);
+  }
+
+  console.log(`[voice-lab] Gate 1 PASS: ${status}`);
+  console.log(`[voice-lab] Gate 2A PASS: ${gate2Details}`);
 } catch (error) {
   await snapshot("error").catch(() => {});
   console.error(`[voice-lab] captured failures=${JSON.stringify(failures, null, 2)}`);
