@@ -37,14 +37,14 @@ jobs:
         with:
           gradle-version: '8.14.4'
 
-      - name: Build Kotlin JS voice lab
-        run: gradle :voice-lab:jsBrowserProductionWebpack --no-daemon --stacktrace
+      - name: Build runnable Kotlin JS distribution
+        run: gradle :voice-lab:jsBrowserDistribution --no-daemon --stacktrace
 
-      - name: Verify production bundle
+      - name: Verify production distribution
         run: |
-          test -f voice-lab/build/dist/js/productionExecutable/index.html
-          test -f voice-lab/build/dist/js/productionExecutable/voice-lab.js
-          ls -lh voice-lab/build/dist/js/productionExecutable
+          test -f voice-lab/build/web-dist/index.html
+          test -f voice-lab/build/web-dist/voice-lab.js
+          ls -lh voice-lab/build/web-dist
 
       - name: Install WebKit test runtime
         run: |
@@ -53,7 +53,7 @@ jobs:
 
       - name: Run WebKit Gate 1 preflight
         run: |
-          python3 -m http.server 4173 --bind 127.0.0.1 --directory voice-lab/build/dist/js/productionExecutable > /tmp/voice-lab-http.log 2>&1 &
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory voice-lab/build/web-dist > /tmp/voice-lab-http.log 2>&1 &
           SERVER_PID=$!
           trap 'kill $SERVER_PID || true' EXIT
           for i in {1..20}; do
