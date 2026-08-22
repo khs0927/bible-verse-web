@@ -51,7 +51,7 @@
         <p class="step-label">GATE 2B</p>
         <h2 id="gate2b-title">INT8 실제 ONNX 세션 로드</h2>
         <p class="gate-copy">
-            2A에서 통과한 INT8 prefill graph(약 478 KB)와 shared weight(약 111 MB)를 실제로 내려받아
+            2A에서 통과한 INT8 prefill graph와 shared weight를 실제로 내려받아
             WASM single-thread ONNX 세션을 생성합니다. 아직 음성 합성은 하지 않습니다.
         </p>
         <div class="candidate">
@@ -70,11 +70,11 @@
             추가로 로드합니다. 모바일 브라우저가 실제 합성에 필요한 핵심 모델을 함께 유지할 수 있는지 확인합니다.
         </p>
         <div class="candidate">
-            <div><strong>INT8 local fixed sampler</strong><span>744 KB graph + 약 85 MB externalData</span></div>
+            <div><strong>INT8 local fixed sampler</strong><span>graph + 약 85 MB externalData</span></div>
             <span id="local-session-result" class="badge pending">대기</span>
         </div>
         <div class="candidate">
-            <div><strong>Audio Tokenizer full decoder</strong><span>682 KB graph + 약 44.2 MB externalData</span></div>
+            <div><strong>Audio Tokenizer full decoder</strong><span>graph + 약 44.2 MB externalData</span></div>
             <span id="codec-session-result" class="badge pending">대기</span>
         </div>
         <button id="run-core-sessions" class="secondary" type="button" disabled>2C 핵심 세션 추가 로드</button>
@@ -100,9 +100,27 @@
         <p id="gate3a-details" class="note">모델 세션과 독립적으로 실행할 수 있습니다.</p>
     </section>
 
+    <section class="gate2" aria-labelledby="gate3b-title">
+        <p class="step-label">GATE 3B · 실제 음성</p>
+        <h2 id="gate3b-title">첫 한국어 WAV 생성</h2>
+        <p class="gate-copy">
+            공식 Android Kotlin 구현의 prefill → local sampler → global decode-step → codec decode 순서를
+            Kotlin/JS로 옮겨 실제 한국어 음성을 생성합니다. 기술 검증용 음색은 밝은 여성 preset `Xiaoyu` 하나만 사용합니다.
+        </p>
+        <div class="candidate">
+            <div><strong>하나님은 너를 정말 사랑하신단다.</strong><span>INT8 · Xiaoyu · 최대 96 frames · 48 kHz</span></div>
+            <span id="synthesis-result" class="badge pending">대기</span>
+        </div>
+        <button id="run-synthesis" class="secondary" type="button">3B 실제 한국어 음성 생성</button>
+        <p id="gate3b-details" class="note">먼저 Gate 3A를 통과해야 합니다. 3B는 필요한 4개 ONNX session을 독립적으로 준비합니다.</p>
+        <audio id="synthesis-audio" class="voice-audio" controls></audio>
+        <p class="warning">
+            WAV 생성 성공은 기술 PASS일 뿐입니다. 한국어 발음과 아이에게 적합한 따뜻함은 실제 청음 후 별도로 합격시켜야 합니다.
+        </p>
+    </section>
+
     <p class="note">
-        Gate 3A가 통과하면 global decode-step을 같은 INT8 shared weight에 연결하고, builtin voice prompt와 함께
-        첫 실제 한국어 WAV 합성으로 넘어갑니다. Production TTS는 모바일 안정성·한국어 음질 Gate가 끝날 때까지 변경하지 않습니다.
+        Production TTS는 실제 iPhone/Android 안정성, 반복 속도, 한국어 음질 Gate가 모두 끝날 때까지 변경하지 않습니다.
     </p>
 </main>
 <script src="voice-lab.js"></script>
