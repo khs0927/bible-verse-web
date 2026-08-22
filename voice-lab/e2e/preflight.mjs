@@ -1,5 +1,8 @@
 import { webkit } from "playwright";
 
+const MODEL_META_URL =
+  "https://huggingface.co/OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX/resolve/main/tts_browser_onnx_meta.json";
+
 const browser = await webkit.launch();
 const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 const failures = [];
@@ -50,6 +53,28 @@ try {
     undefined,
     { timeout: 10_000 },
   );
+
+  const nativeFetchProbe = await page.evaluate(async (url) => {
+    try {
+      const response = await fetch(url);
+      const text = await response.text();
+      return {
+        ok: response.ok,
+        status: response.status,
+        finalUrl: response.url,
+        length: text.length,
+        hasPrefill: text.includes("moss_tts_prefill.onnx"),
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        name: error?.name ?? "UnknownError",
+        message: error?.message ?? String(error),
+        stack: error?.stack ?? null,
+      };
+    }
+  }, MODEL_META_URL);
+  console.log(`[voice-lab:native-fetch] ${JSON.stringify(nativeFetchProbe)}`);
 
   await page.getByRole("button", { name: "1단계 사전검증 시작" }).click();
   await snapshot("clicked");
