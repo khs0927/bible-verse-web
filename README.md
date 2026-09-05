@@ -19,9 +19,16 @@ Kotlin + Ktor로 만든 성경 말씀 웹 애플리케이션입니다.
 
 ## 로컬 실행
 
+> 참고: Gradle Wrapper(`gradlew`) 스크립트가 저장소에 없으므로, 아래 둘 중 하나로 실행한다.
+
 ```bash
-./gradlew run
+# 방법 A: 시스템 Gradle 8.12+ (JDK 21 필요)
+gradle :app:run
 # http://localhost:8080
+
+# 방법 B: Docker (권장, 버전 걱정 없음)
+docker build -t bible-verse-web .
+docker run -p 8080:8080 bible-verse-web
 ```
 
 ## Docker
