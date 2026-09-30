@@ -1,0 +1,16 @@
+services:
+  voicestudio:
+    image: ghcr.io/debpalash/voicestudio:0.5.6
+    container_name: bible-friend-voicestudio
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3900:3900"
+    environment:
+      OMNIVOICE_API_KEY: "${OMNIVOICE_API_KEY:?Set OMNIVOICE_API_KEY first}"
+    volumes:
+      - voicestudio-data:/app/omnivoice_data
+      - huggingface-cache:/root/.cache/huggingface
+
+volumes:
+  voicestudio-data:
+  huggingface-cache:

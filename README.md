@@ -44,3 +44,43 @@ docker run -p 8080:8080 bible-verse-web
 - Render: Web Service + Docker runtime
 
 PORT 환경변수를 자동으로 지원합니다.
+
+
+## Bible Friend VoiceStudio TTS
+
+이 브랜치는 VoiceStudio를 로컬/VPS TTS 공급자로 연결합니다. 브라우저는 VoiceStudio에 직접 접근하지 않고 Ktor 서버의 API만 호출하므로 API 키가 프론트엔드에 노출되지 않습니다.
+
+### 서버 환경변수
+
+    VOICESTUDIO_BASE_URL=http://127.0.0.1:3900
+    VOICESTUDIO_API_KEY=replace-with-a-long-random-key
+    VOICESTUDIO_MODEL=tts-1
+    VOICESTUDIO_VOICE=default
+
+선택 설정:
+
+    VOICESTUDIO_TIMEOUT_SECONDS=180
+    VOICESTUDIO_MAX_INPUT_CHARS=5000
+    VOICESTUDIO_CACHE_MAX_ENTRIES=64
+
+원격 VoiceStudio는 HTTPS가 기본입니다. 신뢰된 사설 네트워크에서만 VOICESTUDIO_ALLOW_INSECURE_HTTP=true를 명시적으로 사용할 수 있습니다.
+
+### 앱 API
+
+- GET /api/voice/status — VoiceStudio 상태 확인
+- GET /api/voice/voices — 사용 가능한 voice profile 조회
+- POST /api/voice/speech — OpenAI-compatible VoiceStudio TTS를 서버 측에서 호출
+- GET /health — bible-verse-web 자체 health check
+
+POST /api/voice/speech 예시:
+
+    curl http://localhost:8080/api/voice/speech \
+      -H "Content-Type: application/json" \
+      -d '{"text":"안녕! 오늘도 말씀을 함께 읽어볼까?","voice":"default","model":"tts-1","responseFormat":"mp3"}' \
+      --output bible-friend.mp3
+
+동일한 요청은 프로세스 메모리에서 LRU 캐시되어 반복 TTS 생성 비용과 지연을 줄입니다.
+
+### VoiceStudio VPS
+
+운영용 VoiceStudio Docker 예시는 deploy/voicestudio/에 있습니다. 현재 구성은 VoiceStudio 0.5.6을 고정하고 3900 포트를 loopback에만 공개합니다.
