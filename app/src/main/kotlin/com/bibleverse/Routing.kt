@@ -1,8 +1,6 @@
 package com.bibleverse
 
-import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpStatusCode
+import io.ktor.http.*
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
 import io.ktor.server.request.receive
@@ -13,6 +11,8 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 fun Application.configureRouting() {
     val voiceStudio = VoiceStudioClient(VoiceStudioConfig.fromEnvironment())
@@ -36,7 +36,7 @@ fun Application.configureRouting() {
         }
 
         get("/api/voice/status") {
-            val probe = voiceStudio.probe()
+            val probe = withContext(Dispatchers.IO) { voiceStudio.probe() }
             val payload = VoiceStatusResponse(
                 available = probe.available,
                 model = voiceStudio.config.defaultModel,
@@ -53,7 +53,7 @@ fun Application.configureRouting() {
         get("/api/voice/voices") {
             try {
                 call.respondText(
-                    voiceStudio.voicesJson(),
+                    withContext(Dispatchers.IO) { voiceStudio.voicesJson() },
                     ContentType.Application.Json.withCharset(Charsets.UTF_8),
                 )
             } catch (e: VoiceStudioException) {
@@ -72,7 +72,7 @@ fun Application.configureRouting() {
         post("/api/voice/speech") {
             try {
                 val request = call.receive<SpeechRequest>()
-                val audio = voiceStudio.synthesize(request)
+                val audio = withContext(Dispatchers.IO) { voiceStudio.synthesize(request) }
 
                 call.response.header("X-VoiceStudio-Cache", if (audio.cacheHit) "HIT" else "MISS")
                 call.response.header(HttpHeaders.CacheControl, "no-store")
@@ -202,9 +202,9 @@ private fun landingPage(config: VoiceStudioConfig): String {
       try {
         const response = await fetch("/api/voice/status", { cache: "no-store" });
         const data = await response.json();
-        statusEl.innerHTML = data.available
-          ? "<strong>VoiceStudio 연결됨</strong> · " + data.model + " · " + data.voice
-          : "<strong>VoiceStudio 연결 대기</strong> · " + (data.detail || "unavailable");
+        statusEl.textContent = data.available
+          ? "VoiceStudio 연결됨 · " + data.model + " · " + data.voice
+          : "VoiceStudio 연결 대기 · " + (data.detail || "unavailable");
       } catch (error) {
         statusEl.textContent = "상태 확인 실패 · " + error.message;
       }
@@ -247,7 +247,7 @@ private fun landingPage(config: VoiceStudioConfig): String {
         await player.play();
 
         const cache = response.headers.get("X-VoiceStudio-Cache") || "MISS";
-        statusEl.innerHTML = "<strong>재생 중</strong> · server cache " + cache;
+        statusEl.textContent = "재생 중 · server cache " + cache;
       } catch (error) {
         statusEl.textContent = error.message;
       } finally {
